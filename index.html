@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>予約スロット</title>
+  <title>予約スロット（UTC表示）</title>
   <style>
     body {
       font-family: sans-serif;
@@ -29,7 +29,7 @@
   </style>
 </head>
 <body>
-  <h1>予約スロット</h1>
+  <h1>予約スロット（UTC時間表示）</h1>
   <div id="slots">読み込み中...</div>
 
   <script>
@@ -85,7 +85,7 @@
         dayDiv.className = "day";
 
         const heading = document.createElement("h3");
-        heading.innerText = `${dateStr} の空き時間`;
+        heading.innerText = `${dateStr} の空き時間（UTC）`;
         dayDiv.appendChild(heading);
 
         for (let h = startHour; h < endHour; h++) {
@@ -101,11 +101,11 @@
               0
             ));
 
-            // ボタン表示用にローカル時間でラベル作成（任意）
-            const label = slotDateUTC.toLocaleTimeString('ja-JP', {hour: '2-digit', minute: '2-digit', timeZoneName: 'short'});
+            // UTC時間表示用のHH:mmラベルを自作
+            const label = slotDateUTC.getUTCHours().toString().padStart(2, '0') + ':' + slotDateUTC.getUTCMinutes().toString().padStart(2, '0');
 
             const btn = document.createElement("button");
-            btn.innerText = `${label}〜`;
+            btn.innerText = `${label} UTC〜`;
             btn.className = "slot-btn";
 
             if (isSlotReserved(slotDateUTC, reservedSlots)) {
