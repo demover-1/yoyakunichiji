@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>予約スロット一覧</title>
+  <title>予約スロット</title>
   <style>
     body {
       font-family: sans-serif;
@@ -30,56 +30,70 @@
 </head>
 <body>
   <h1>予約スロット</h1>
-  <div id="slots"></div>
+  <div id="slots">読み込み中...</div>
 
   <script>
-    // スロットの設定
-    const baseDate = new Date("2025-07-12");
-    const days = 7;
-    const startHour = 18;
-    const endHour = 20;
+    const webhookUrl = "https://hook.eu1.make.com/xxxxxx"; // ← make.comのWebhook URLに変更
 
-    // 予約済みスロット（ここは仮の例。実際はfetchで取得）
-    const reservedSlots = [
-      "2025-07-12T18:00:00",
-      "2025-07-13T19:00:00",
-      "2025-07-15T18:30:00"
-    ];
-
-    const container = document.getElementById("slots");
-
-    for (let d = 0; d < days; d++) {
-      const current = new Date(baseDate);
-      current.setDate(baseDate.getDate() + d);
-      const dateStr = current.toISOString().split("T")[0]; // yyyy-mm-dd
-
-      const dayDiv = document.createElement("div");
-      dayDiv.className = "day";
-      const heading = document.createElement("h3");
-      heading.innerText = `${dateStr} の空き時間`;
-      dayDiv.appendChild(heading);
-
-      for (let h = startHour; h < endHour; h++) {
-        for (let m = 0; m < 60; m += 30) {
-          const slotDate = new Date(current);
-          slotDate.setHours(h, m, 0, 0);
-          const isoStart = slotDate.toISOString().slice(0, 19); // 予約判定用
-          const label = slotDate.toTimeString().slice(0, 5); // HH:MM
-
-          const btn = document.createElement("button");
-          btn.innerText = `${label}〜`;
-          btn.className = "slot-btn";
-
-          if (reservedSlots.includes(isoStart)) {
-            btn.disabled = true;
-          }
-
-          dayDiv.appendChild(btn);
-        }
+    async function loadReservedSlots() {
+      try {
+        const response = await fetch(webhookUrl);
+        if (!response.ok) throw new Error("予約データの取得に失敗しました");
+        const data = await response.json();
+        return data; // 配列
+      } catch (err) {
+        console.error(err);
+        return [];
       }
-
-      container.appendChild(dayDiv);
     }
+
+    function generateSlots(reservedSlots) {
+      const container = document.getElementById("slots");
+      container.innerHTML = "";
+
+      const today = new Date();
+      const days = 7;
+      const startHour = 18;
+      const endHour = 20;
+
+      for (let d = 0; d < days; d++) {
+        const current = new Date(today);
+        current.setDate(today.getDate() + d);
+        const dateStr = current.toISOString().split("T")[0];
+
+        const dayDiv = document.createElement("div");
+        dayDiv.className = "day";
+        const heading = document.createElement("h3");
+        heading.innerText = `${dateStr} の空き時間`;
+        dayDiv.appendChild(heading);
+
+        for (let h = startHour; h < endHour; h++) {
+          for (let m = 0; m < 60; m += 30) {
+            const slotDate = new Date(current);
+            slotDate.setHours(h, m, 0, 0);
+            const isoStart = slotDate.toISOString().slice(0, 19);
+            const label = slotDate.toTimeString().slice(0, 5);
+
+            const btn = document.createElement("button");
+            btn.innerText = `${label}〜`;
+            btn.className = "slot-btn";
+
+            if (reservedSlots.includes(isoStart)) {
+              btn.disabled = true;
+            }
+
+            dayDiv.appendChild(btn);
+          }
+        }
+
+        container.appendChild(dayDiv);
+      }
+    }
+
+    // 実行開始
+    loadReservedSlots().then(reserved => {
+      generateSlots(reserved);
+    });
   </script>
 </body>
 </html>
