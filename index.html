@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>予約ページ</title>
+  <style>
+    button { margin: 5px; padding: 10px; }
+    button.booked { background-color: #ccc; color: #666; cursor: not-allowed; }
+    button.available { background-color: #4CAF50; color: white; }
+  </style>
+</head>
+<body>
+  <h1>予約可能な日時一覧</h1>
+
+  <label for="date">日付選択：</label>
+  <input type="date" id="date" min="2025-07-12" max="2025-07-19" value="2025-07-12" />
+
+  <div id="timeslots"></div>
+
+  <div id="form" style="margin-top:20px;">
+    <label>名前：<input type="text" id="name" /></label><br />
+    <label>電話番号：<input type="tel" id="phone" /></label><br />
+    <button id="reserveBtn" disabled>予約確定</button>
+  </div>
+
+  <div id="message" style="margin-top:10px;color:red;"></div>
+
+  <script>
+    // 予約済み時間のサンプル（本来はAPIから取得）
+    const bookedSlots = [
+      "2025-07-12T18:30",
+      "2025-07-14T19:00"
+    ];
+
+    const times = ["18:00","18:30","19:00","19:30","20:00"];
+
+    const dateInput = document.getElementById('date');
+    const timeslotsDiv = document.getElementById('timeslots');
+    const reserveBtn = document.getElementById('reserveBtn');
+    const messageDiv = document.getElementById('message');
+    let selectedSlot = null;
+
+    function renderTimeslots(date) {
+      timeslotsDiv.innerHTML = '';
+      selectedSlot = null;
+      reserveBtn.disabled = true;
+      messageDiv.textContent = '';
+
+      times.forEach(t => {
+        const slotStr = `${date}T${t}`;
+        const btn = document.createElement('button');
+        btn.textContent = t;
+        if(bookedSlots.includes(slotStr)){
+          btn.classList.add('booked');
+          btn.disabled = true;
+        } else {
+          btn.classList.add('available');
+          btn.onclick = () => {
+            selectedSlot = slotStr;
+            reserveBtn.disabled = false;
+            messageDiv.textContent = `選択中：${selectedSlot}`;
+          };
+        }
+        timeslotsDiv.appendChild(btn);
+      });
+    }
+
+    dateInput.addEventListener('change', (e) => {
+      renderTimeslots(e.target.value);
+    });
+
+    reserveBtn.onclick = () => {
+      const name = document.getElementById('name').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      if(!name || !phone) {
+        messageDiv.textContent = '名前と電話番号は必須です。';
+        return;
+      }
+      messageDiv.textContent = `予約完了！日時：${selectedSlot} 名前：${name} 電話：${phone}`;
+      // ここでAPI呼び出しなどの予約処理を実装する
+    };
+
+    // 初期表示
+    renderTimeslots(dateInput.value);
+  </script>
+</body>
+</html>
