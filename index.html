@@ -48,7 +48,7 @@
     }
 
     function isSlotReserved(slotStart, reservedSlots) {
-      // slotStart: Dateオブジェクト
+      // slotStart: Dateオブジェクト（UTC基準）
       // reservedSlots: [{start: ISO文字列, end: ISO文字列}, ...]
       for (const slot of reservedSlots) {
         const resStart = new Date(slot.start);
@@ -73,9 +73,13 @@
       const endHour = 20;
 
       for (let d = 0; d < days; d++) {
-        const current = new Date(today);
-        current.setDate(today.getDate() + d);
-        const dateStr = current.toISOString().split("T")[0];
+        // UTCで日付を作成（今日のUTC日付にd日足す）
+        const currentUTC = new Date(Date.UTC(
+          today.getUTCFullYear(),
+          today.getUTCMonth(),
+          today.getUTCDate() + d
+        ));
+        const dateStr = currentUTC.toISOString().split("T")[0];
 
         const dayDiv = document.createElement("div");
         dayDiv.className = "day";
@@ -86,16 +90,25 @@
 
         for (let h = startHour; h < endHour; h++) {
           for (let m = 0; m < 60; m += 30) {
-            const slotDate = new Date(current);
-            slotDate.setHours(h, m, 0, 0);
+            // UTC時間でスロット日時を作成
+            const slotDateUTC = new Date(Date.UTC(
+              currentUTC.getUTCFullYear(),
+              currentUTC.getUTCMonth(),
+              currentUTC.getUTCDate(),
+              h,
+              m,
+              0,
+              0
+            ));
 
-            const label = slotDate.toTimeString().slice(0, 5);
+            // ボタン表示用にローカル時間でラベル作成（任意）
+            const label = slotDateUTC.toLocaleTimeString('ja-JP', {hour: '2-digit', minute: '2-digit', timeZoneName: 'short'});
 
             const btn = document.createElement("button");
             btn.innerText = `${label}〜`;
             btn.className = "slot-btn";
 
-            if (isSlotReserved(slotDate, reservedSlots)) {
+            if (isSlotReserved(slotDateUTC, reservedSlots)) {
               btn.disabled = true;
             }
 
