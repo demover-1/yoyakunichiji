@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>予約スロット（UTC表示）</title>
+  <title>予約スロット</title>
   <style>
     body {
       font-family: sans-serif;
@@ -29,34 +29,37 @@
   </style>
 </head>
 <body>
-  <h1>予約スロット（UTC時間表示）</h1>
+  <h1>予約スロット (UTC表示)</h1>
   <div id="slots">読み込み中...</div>
 
   <script>
-    const webhookUrl = "https://hook.eu2.make.com/za54bnynu8rzqnozy9kryxoowg8b1w9b"; // ← make.comのWebhook URLに変更
+    const webhookUrl = "https://hook.eu2.make.com/za54bnynu8rzqnozy9kryxoowg8b1w9b";
 
     async function loadReservedSlots() {
       try {
         const response = await fetch(webhookUrl);
         if (!response.ok) throw new Error("予約データの取得に失敗しました");
         const data = await response.json();
-        return data; // 例: [{start: "2025-07-13T15:00:00.000Z", end: "2025-07-14T15:00:00.000Z"}, ...]
+        return data;
       } catch (err) {
         console.error(err);
         return [];
       }
     }
 
-    function isSlotReserved(slotStart, reservedSlots) {
-      // slotStart: Dateオブジェクト（UTC基準）
-      // reservedSlots: [{start: ISO文字列, end: ISO文字列}, ...]
+    function isSlotReserved(slotStartUTC, reservedSlots) {
+      const slotEndUTC = new Date(slotStartUTC.getTime() + 30 * 60 * 1000);
       for (const slot of reservedSlots) {
         const resStart = new Date(slot.start);
         const resEnd = new Date(slot.end);
-        const slotEnd = new Date(slotStart.getTime() + 30 * 60 * 1000); // 30分後
 
-        // 重なり判定（スロット開始＜予約終了 && スロット終了＞予約開始）
-        if (slotStart < resEnd && slotEnd > resStart) {
+        // ログ確認用
+        console.log(
+          `slot: ${slotStartUTC.toISOString()} - ${slotEndUTC.toISOString()}`
+          + ` vs reserved: ${resStart.toISOString()} - ${resEnd.toISOString()}`
+        );
+
+        if (slotStartUTC < resEnd && slotEndUTC > resStart) {
           return true;
         }
       }
@@ -73,7 +76,6 @@
       const endHour = 20;
 
       for (let d = 0; d < days; d++) {
-        // UTCで日付を作成（今日のUTC日付にd日足す）
         const currentUTC = new Date(Date.UTC(
           today.getUTCFullYear(),
           today.getUTCMonth(),
@@ -90,22 +92,19 @@
 
         for (let h = startHour; h < endHour; h++) {
           for (let m = 0; m < 60; m += 30) {
-            // UTC時間でスロット日時を作成
             const slotDateUTC = new Date(Date.UTC(
               currentUTC.getUTCFullYear(),
               currentUTC.getUTCMonth(),
               currentUTC.getUTCDate(),
               h,
               m,
-              0,
               0
             ));
 
-            // UTC時間表示用のHH:mmラベルを自作
-            const label = slotDateUTC.getUTCHours().toString().padStart(2, '0') + ':' + slotDateUTC.getUTCMinutes().toString().padStart(2, '0');
+            const label = slotDateUTC.toISOString().split("T")[1].slice(0, 5) + " UTC";
 
             const btn = document.createElement("button");
-            btn.innerText = `${label} UTC〜`;
+            btn.innerText = `${label}〜`;
             btn.className = "slot-btn";
 
             if (isSlotReserved(slotDateUTC, reservedSlots)) {
@@ -120,7 +119,6 @@
       }
     }
 
-    // 実行開始
     loadReservedSlots().then(reserved => {
       generateSlots(reserved);
     });
