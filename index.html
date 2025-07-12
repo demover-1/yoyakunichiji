@@ -40,11 +40,27 @@
         const response = await fetch(webhookUrl);
         if (!response.ok) throw new Error("予約データの取得に失敗しました");
         const data = await response.json();
-        return data; // 配列
+        return data; // 例: [{start: "2025-07-13T15:00:00.000Z", end: "2025-07-14T15:00:00.000Z"}, ...]
       } catch (err) {
         console.error(err);
         return [];
       }
+    }
+
+    function isSlotReserved(slotStart, reservedSlots) {
+      // slotStart: Dateオブジェクト
+      // reservedSlots: [{start: ISO文字列, end: ISO文字列}, ...]
+      for (const slot of reservedSlots) {
+        const resStart = new Date(slot.start);
+        const resEnd = new Date(slot.end);
+        const slotEnd = new Date(slotStart.getTime() + 30 * 60 * 1000); // 30分後
+
+        // 重なり判定（スロット開始＜予約終了 && スロット終了＞予約開始）
+        if (slotStart < resEnd && slotEnd > resStart) {
+          return true;
+        }
+      }
+      return false;
     }
 
     function generateSlots(reservedSlots) {
@@ -63,6 +79,7 @@
 
         const dayDiv = document.createElement("div");
         dayDiv.className = "day";
+
         const heading = document.createElement("h3");
         heading.innerText = `${dateStr} の空き時間`;
         dayDiv.appendChild(heading);
@@ -71,14 +88,14 @@
           for (let m = 0; m < 60; m += 30) {
             const slotDate = new Date(current);
             slotDate.setHours(h, m, 0, 0);
-            const isoStart = slotDate.toISOString().slice(0, 19);
+
             const label = slotDate.toTimeString().slice(0, 5);
 
             const btn = document.createElement("button");
             btn.innerText = `${label}〜`;
             btn.className = "slot-btn";
 
-            if (reservedSlots.includes(isoStart)) {
+            if (isSlotReserved(slotDate, reservedSlots)) {
               btn.disabled = true;
             }
 
