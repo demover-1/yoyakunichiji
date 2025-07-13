@@ -29,7 +29,7 @@
   </style>
 </head>
 <body>
-  <h1>予約スロット (UTC表示)</h1>
+  <h1>予約スロット (JST表示)</h1>
   <div id="slots">読み込み中...</div>
 
   <script>
@@ -47,19 +47,19 @@
       }
     }
 
-    function isSlotReserved(slotStartUTC, reservedSlots) {
-      const slotEndUTC = new Date(slotStartUTC.getTime() + 30 * 60 * 1000);
+    function isSlotReserved(slotStartJST, reservedSlots) {
+      const slotEndJST = new Date(slotStartJST.getTime() + 30 * 60 * 1000);
       for (const slot of reservedSlots) {
         const resStart = new Date(slot.start);
         const resEnd = new Date(slot.end);
 
-        // ログ確認用
+        // JSTで比較（ローカルタイム）
         console.log(
-          `slot: ${slotStartUTC.toISOString()} - ${slotEndUTC.toISOString()}`
-          + ` vs reserved: ${resStart.toISOString()} - ${resEnd.toISOString()}`
+          `slot: ${slotStartJST.toString()} - ${slotEndJST.toString()}`
+          + ` vs reserved: ${resStart.toString()} - ${resEnd.toString()}`
         );
 
-        if (slotStartUTC < resEnd && slotEndUTC > resStart) {
+        if (slotStartJST < resEnd && slotEndJST > resStart) {
           return true;
         }
       }
@@ -76,38 +76,43 @@
       const endHour = 20;
 
       for (let d = 0; d < days; d++) {
-        const currentUTC = new Date(Date.UTC(
-          today.getUTCFullYear(),
-          today.getUTCMonth(),
-          today.getUTCDate() + d
-        ));
-        const dateStr = currentUTC.toISOString().split("T")[0];
+        const currentDate = new Date();
+        currentDate.setDate(today.getDate() + d);
+
+        const dateStr = currentDate.toLocaleDateString("ja-JP", {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
 
         const dayDiv = document.createElement("div");
         dayDiv.className = "day";
 
         const heading = document.createElement("h3");
-        heading.innerText = `${dateStr} の空き時間（UTC）`;
+        heading.innerText = `${dateStr} の空き時間（JST）`;
         dayDiv.appendChild(heading);
 
         for (let h = startHour; h < endHour; h++) {
           for (let m = 0; m < 60; m += 30) {
-            const slotDateUTC = new Date(Date.UTC(
-              currentUTC.getUTCFullYear(),
-              currentUTC.getUTCMonth(),
-              currentUTC.getUTCDate(),
+            const slotDate = new Date(
+              currentDate.getFullYear(),
+              currentDate.getMonth(),
+              currentDate.getDate(),
               h,
               m,
               0
-            ));
+            );
 
-            const label = slotDateUTC.toISOString().split("T")[1].slice(0, 5) + " UTC";
+            const label = slotDate.toLocaleTimeString("ja-JP", {
+              hour: "2-digit",
+              minute: "2-digit"
+            }) + " JST";
 
             const btn = document.createElement("button");
             btn.innerText = `${label}〜`;
             btn.className = "slot-btn";
 
-            if (isSlotReserved(slotDateUTC, reservedSlots)) {
+            if (isSlotReserved(slotDate, reservedSlots)) {
               btn.disabled = true;
             }
 
