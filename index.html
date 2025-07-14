@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>予約スロット</title>
-  <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP&display=swap" rel="stylesheet" />
   <style>
     body {
@@ -109,13 +108,6 @@
       user-select: none;
     }
 
-    /* 送信中フラグで半透明 */
-    td.sending {
-      opacity: 0.6;
-      cursor: wait;
-    }
-
-    /* スクロールバー（Webkit） */
     #slots-wrapper::-webkit-scrollbar {
       height: 10px;
     }
@@ -129,17 +121,26 @@
       background: #dbeafe;
     }
 
-    #messageBox {
-      margin-top: 20px;
-      padding: 12px;
-      background-color: #d1fae5;
-      border: 2px solid #22c55e;
+    #userIdWrapper {
+      margin: 0 auto 20px auto;
+      max-width: 700px;
+      background: #fff;
+      padding: 12px 20px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    #userId {
+      padding: 8px 12px;
+      font-size: 16px;
+      border: 2px solid #0c4a6e;
       border-radius: 8px;
-      color: #166534;
-      font-weight: 700;
-      white-space: pre-line;
-      user-select: none;
-      display: none; /* 初期は非表示 */
+      width: 220px;
     }
 
     @media (max-width: 480px) {
@@ -156,17 +157,26 @@
       #slots {
         padding: 8px;
       }
+      #userId {
+        width: 100%;
+      }
+      #userIdWrapper {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
 <body>
   <h1>予約スロット（JST表示）</h1>
 
+  <div id="userIdWrapper">
+    <label for="userId">ユーザーID（必須）：</label>
+    <input type="text" id="userId" placeholder="ユーザーIDを入力" autocomplete="off" />
+  </div>
+
   <div id="slots-wrapper">
     <div id="slots">読み込み中...</div>
   </div>
-
-  <div id="messageBox"></div>
 
   <script>
     const webhookUrl = "https://hook.eu2.make.com/fxqg3wlky4p4kjfwrprhdswesq7v4r66";
@@ -195,10 +205,14 @@
       return `${month}月${day}日 ${hour}:${min}`;
     }
 
+    function toJSTISOString(date) {
+      const offsetMs = 9 * 60 * 60 * 1000; // +09:00 JST
+      const jst = new Date(date.getTime() + offsetMs);
+      return jst.toISOString().slice(0, 19) + "+09:00";
+    }
+
     function renderGrid(reservedSlots) {
       const container = document.getElementById("slots");
-      const messageBox = document.getElementById("messageBox");
-
       const today = new Date();
       const days = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(today);
@@ -228,7 +242,7 @@
           const reserved = isReserved(dt, reservedSlots);
           const cls = reserved ? "unavailable" : "available";
           const sym = reserved ? "×" : "○";
-          html += `<td class="${cls}"${cls === "available" ? ` data-datetime="${dt.toISOString()}"` : ''}>${sym}</td>`;
+          html += `<td class="${cls}"${cls==="available" ? ` data-datetime="${dt.toISOString()}"` : ''}>${sym}</td>`;
         });
         html += "</tr>";
       });
@@ -238,44 +252,37 @@
 
       document.querySelectorAll("td.available").forEach(td => {
         td.addEventListener("click", async () => {
-          if (td.classList.contains("sending")) return;
-          td.classList.add("sending");
-
-          messageBox.style.display = "none";
-          messageBox.textContent = "";
+          const userId = document.getElementById("userId").value.trim();
+          if (!userId) {
+            alert("ユーザーIDを入力してください");
+            return;
+          }
 
           const datetimeISO = td.getAttribute("data-datetime");
           if (!datetimeISO) {
             alert("日時情報が取得できません");
-            td.classList.remove("sending");
             return;
           }
 
           const dt = new Date(datetimeISO);
-          const messageText = `確定予約日：${formatDateTimeForMessage(dt)}`;
+          const title = "確定予約日";
+          const datetime = toJSTISOString(dt);
 
           try {
             const res = await fetch(webhookUrl, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ message: messageText })
+              body: JSON.stringify({
+                userId: userId,
+                title: title,
+                datetime: datetime
+              })
             });
             if (!res.ok) throw new Error("送信に失敗しました");
 
-            messageBox.textContent = `予約日時を送信しました！\n${messageText}`;
-            messageBox.style.display = "block";
-
-            td.textContent = "✓";
-            td.style.backgroundColor = "#bbf7d0";
-            td.style.color = "#166534";
-            td.style.cursor = "default";
-            td.classList.remove("available");
-            td.classList.add("unavailable");
-            td.removeAttribute("data-datetime");
-
+            alert(`予約日時を送信しました！\n${title}：${formatDateTimeForMessage(dt)}`);
           } catch (err) {
             alert(`エラーが発生しました: ${err.message}`);
-            td.classList.remove("sending");
           }
         });
       });
