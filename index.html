@@ -13,37 +13,46 @@
       background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
       color: #222;
     }
+
     h1 {
       text-align: center;
       margin-bottom: 24px;
       color: #0f172a;
       text-shadow: 0 1px 2px rgba(0,0,0,0.1);
       font-weight: 700;
+      font-size: 24px;
     }
+
+    #slots-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      max-width: 100%;
+    }
+
     #slots {
-      max-width: 960px;
-      margin: 0 auto;
       background: #fff;
       border-radius: 12px;
       box-shadow: 0 12px 24px rgba(0,0,0,0.08);
       padding: 16px;
-      overflow-x: auto;
+      min-width: 700px;
+      display: inline-block;
     }
+
     table {
       border-collapse: separate;
       border-spacing: 0;
       width: 100%;
       table-layout: fixed;
-      border-radius: 12px;
-      overflow: hidden;
     }
+
     th, td {
       padding: 12px 8px;
       text-align: center;
       font-size: 14px;
-      user-select: none;
+      white-space: nowrap;
       transition: background-color 0.3s ease;
     }
+
     thead th {
       background-color: #0c4a6e;
       color: white;
@@ -51,18 +60,21 @@
       font-size: 15px;
       letter-spacing: 0.04em;
     }
+
     tbody tr:nth-child(odd) td {
       background-color: #f9fbfd;
     }
+
     tbody tr:hover td {
       background-color: #e0f2fe;
     }
+
     th:first-child {
       background-color: #94a3b8;
       color: #f1f5f9;
       font-weight: 600;
-      user-select: none;
     }
+
     td.available {
       color: #166534;
       background-color: #dcfce7;
@@ -74,12 +86,13 @@
       border-bottom: 2px solid #bbf7d0;
       border-radius: 6px;
       box-shadow: inset 0 0 8px #bbf7d0;
-      transition: background-color 0.25s ease, box-shadow 0.25s ease;
     }
+
     td.available:hover {
       background-color: #a7f3d0;
       box-shadow: inset 0 0 12px #22c55e;
     }
+
     td.unavailable {
       color: #64748b;
       background-color: #e2e8f0;
@@ -89,24 +102,44 @@
       border-top: 2px solid #f1f5f9;
       border-bottom: 2px solid #f1f5f9;
       border-radius: 6px;
-      user-select: none;
     }
-    /* スクロールバー調整（Webkit系）*/
-    #slots::-webkit-scrollbar {
+
+    /* スクロールバー（Webkit） */
+    #slots-wrapper::-webkit-scrollbar {
       height: 10px;
     }
-    #slots::-webkit-scrollbar-thumb {
+
+    #slots-wrapper::-webkit-scrollbar-thumb {
       background: #0c4a6e;
       border-radius: 10px;
     }
-    #slots::-webkit-scrollbar-track {
+
+    #slots-wrapper::-webkit-scrollbar-track {
       background: #dbeafe;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 12px;
+      }
+      h1 {
+        font-size: 18px;
+      }
+      th, td {
+        font-size: 11px;
+        padding: 6px 4px;
+      }
+      #slots {
+        padding: 8px;
+      }
     }
   </style>
 </head>
 <body>
   <h1>予約スロット（JST表示）</h1>
-  <div id="slots">読み込み中...</div>
+  <div id="slots-wrapper">
+    <div id="slots">読み込み中...</div>
+  </div>
 
   <script>
     const webhookUrl = "https://hook.eu2.make.com/fxqg3wlky4p4kjfwrprhdswesq7v4r66";
