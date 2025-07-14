@@ -9,124 +9,97 @@
       font-family: sans-serif;
       padding: 20px;
     }
-    .day {
-      margin-bottom: 24px;
+    table {
+      border-collapse: collapse;
+      width: 100%;
     }
-    .slot-btn {
-      display: inline-block;
-      margin: 4px;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 6px;
-      background-color: #4CAF50;
-      color: white;
-      cursor: pointer;
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
     }
-    .slot-btn:disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
+    th {
+      background-color: #f5f5f5;
+    }
+    .available {
+      color: green;
+      background-color: #e0f8e0; /* 黄緑 */
+      font-weight: bold;
+    }
+    .unavailable {
+      color: gray;
+      background-color: #f0f0f0; /* グレー背景 */
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h1>予約スロット (JST表示)</h1>
+  <h1>予約スロット（JST表示）</h1>
   <div id="slots">読み込み中...</div>
 
   <script>
     const webhookUrl = "https://hook.eu2.make.com/fxqg3wlky4p4kjfwrprhdswesq7v4r66";
 
     async function loadReservedSlots() {
-      try {
-        const response = await fetch(webhookUrl);
-        if (!response.ok) throw new Error("予約データの取得に失敗しました");
-        const data = await response.json();
-        return data;
-      } catch (err) {
-        console.error(err);
-        return [];
-      }
+      const res = await fetch(webhookUrl);
+      if (!res.ok) throw new Error("予約データ取得失敗");
+      return res.json();
     }
 
-    function isSlotReserved(slotStartJST, reservedSlots) {
-      const slotEndJST = new Date(slotStartJST.getTime() + 30 * 60 * 1000);
-      for (const slot of reservedSlots) {
-        const resStart = new Date(slot.start);
-        const resEnd = new Date(slot.end);
-
-        // JSTで比較（ローカルタイム）
-        console.log(
-          `slot: ${slotStartJST.toString()} - ${slotEndJST.toString()}`
-          + ` vs reserved: ${resStart.toString()} - ${resEnd.toString()}`
-        );
-
-        if (slotStartJST < resEnd && slotEndJST > resStart) {
-          return true;
-        }
-      }
-      return false;
+    function isReserved(date, reservedSlots) {
+      const end = new Date(date.getTime() + 30 * 60000);
+      return reservedSlots.some(slot => {
+        const a = new Date(slot.start);
+        const b = new Date(slot.end);
+        return date < b && end > a;
+      });
     }
 
-    function generateSlots(reservedSlots) {
+    function renderGrid(reservedSlots) {
       const container = document.getElementById("slots");
-      container.innerHTML = "";
-
       const today = new Date();
-      const days = 7;
-      const startHour = 18;
-      const endHour = 20;
+      const days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(today);
+        d.setDate(d.getDate() + i);
+        return d;
+      });
 
-      for (let d = 0; d < days; d++) {
-        const currentDate = new Date();
-        currentDate.setDate(today.getDate() + d);
-
-        const dateStr = currentDate.toLocaleDateString("ja-JP", {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit'
-        });
-
-        const dayDiv = document.createElement("div");
-        dayDiv.className = "day";
-
-        const heading = document.createElement("h3");
-        heading.innerText = `${dateStr} の空き時間（JST）`;
-        dayDiv.appendChild(heading);
-
-        for (let h = startHour; h < endHour; h++) {
-          for (let m = 0; m < 60; m += 30) {
-            const slotDate = new Date(
-              currentDate.getFullYear(),
-              currentDate.getMonth(),
-              currentDate.getDate(),
-              h,
-              m,
-              0
-            );
-
-            const label = slotDate.toLocaleTimeString("ja-JP", {
-              hour: "2-digit",
-              minute: "2-digit"
-            }) + " JST";
-
-            const btn = document.createElement("button");
-            btn.innerText = `${label}〜`;
-            btn.className = "slot-btn";
-
-            if (isSlotReserved(slotDate, reservedSlots)) {
-              btn.disabled = true;
-            }
-
-            dayDiv.appendChild(btn);
-          }
-        }
-
-        container.appendChild(dayDiv);
+      const times = [];
+      for (let h = 10; h <= 20; h++) {
+        times.push(`${('0' + h).slice(-2)}:00`);
+        times.push(`${('0' + h).slice(-2)}:30`);
       }
+
+      let html = "<table><thead><tr><th></th>";
+      days.forEach(d => {
+        const dt = d.toLocaleDateString("ja-JP", { month: '2-digit', day: '2-digit', weekday: 'short' });
+        html += `<th>${dt}</th>`;
+      });
+      html += "</tr></thead><tbody>";
+
+      times.forEach(t => {
+        html += `<tr><th>${t}</th>`;
+        days.forEach(d => {
+          const [hh, mm] = t.split(":");
+          const dt = new Date(d);
+          dt.setHours(+hh, +mm, 0, 0);
+          const reserved = isReserved(dt, reservedSlots);
+          const cls = reserved ? "unavailable" : "available";
+          const sym = reserved ? "×" : "○";
+          html += `<td class="${cls}">${sym}</td>`;
+        });
+        html += "</tr>";
+      });
+
+      html += "</tbody></table>";
+      container.innerHTML = html;
     }
 
-    loadReservedSlots().then(reserved => {
-      generateSlots(reserved);
-    });
+    loadReservedSlots()
+      .then(renderGrid)
+      .catch(err => {
+        document.getElementById("slots").textContent = err.message;
+      });
   </script>
 </body>
 </html>
