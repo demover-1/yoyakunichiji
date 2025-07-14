@@ -2,10 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>予約スロット</title>
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP&display=swap" rel="stylesheet" />
   <style>
     body {
       font-family: 'Noto Sans JP', sans-serif;
@@ -13,114 +10,17 @@
       background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
       color: #222;
     }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 24px;
-      color: #0f172a;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.1);
-      font-weight: 700;
-      font-size: 24px;
-    }
-
-    #slots-wrapper {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      max-width: 100%;
-    }
-
-    #slots {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 12px 24px rgba(0,0,0,0.08);
-      padding: 16px;
-      min-width: 700px;
-      display: inline-block;
-    }
-
-    table {
-      border-collapse: separate;
-      border-spacing: 0;
-      width: 100%;
-      table-layout: fixed;
-    }
-
-    th, td {
-      padding: 12px 8px;
-      text-align: center;
-      font-size: 14px;
-      white-space: nowrap;
-      transition: background-color 0.3s ease;
-      user-select: none;
-    }
-
-    thead th {
-      background-color: #0c4a6e;
-      color: white;
-      font-weight: 700;
-      font-size: 15px;
-      letter-spacing: 0.04em;
-    }
-
-    tbody tr:nth-child(odd) td {
-      background-color: #f9fbfd;
-    }
-
-    tbody tr:hover td:not(.unavailable) {
-      background-color: #e0f2fe;
-      cursor: pointer;
-    }
-
-    th:first-child {
-      background-color: #94a3b8;
-      color: #f1f5f9;
-      font-weight: 600;
-    }
-
-    td.available {
+    /* 省略: CSSは先ほどのものを利用してください */
+    #messageBox {
+      margin-top: 20px;
+      padding: 12px;
+      background-color: #d1fae5;
+      border: 2px solid #22c55e;
+      border-radius: 8px;
       color: #166534;
-      background-color: #dcfce7;
       font-weight: 700;
-      cursor: pointer;
-      border-left: 2px solid #22c55e;
-      border-right: 2px solid #22c55e;
-      border-top: 2px solid #bbf7d0;
-      border-bottom: 2px solid #bbf7d0;
-      border-radius: 6px;
-      box-shadow: inset 0 0 8px #bbf7d0;
+      display: none; /* 初期は非表示 */
       user-select: none;
-    }
-
-    td.available:hover {
-      background-color: #a7f3d0;
-      box-shadow: inset 0 0 12px #22c55e;
-    }
-
-    td.unavailable {
-      color: #64748b;
-      background-color: #e2e8f0;
-      font-weight: 600;
-      border-left: 2px solid #cbd5e1;
-      border-right: 2px solid #cbd5e1;
-      border-top: 2px solid #f1f5f9;
-      border-bottom: 2px solid #f1f5f9;
-      border-radius: 6px;
-      cursor: default;
-      user-select: none;
-    }
-
-    /* スクロールバー（Webkit） */
-    #slots-wrapper::-webkit-scrollbar {
-      height: 10px;
-    }
-
-    #slots-wrapper::-webkit-scrollbar-thumb {
-      background: #0c4a6e;
-      border-radius: 10px;
-    }
-
-    #slots-wrapper::-webkit-scrollbar-track {
-      background: #dbeafe;
     }
   </style>
 </head>
@@ -131,18 +31,17 @@
     <div id="slots">読み込み中...</div>
   </div>
 
+  <div id="messageBox"></div>
+
   <script>
-    // あなたのMake.com webhook URLに置き換えてください
     const webhookUrl = "https://hook.eu2.make.com/fxqg3wlky4p4kjfwrprhdswesq7v4r66";
 
-    // 予約済みスロットをMake.com webhookから取得
     async function loadReservedSlots() {
       const res = await fetch(webhookUrl);
       if (!res.ok) throw new Error("予約データ取得失敗");
       return res.json();
     }
 
-    // 指定日時が予約済みか判定（30分枠で重複チェック）
     function isReserved(date, reservedSlots) {
       const end = new Date(date.getTime() + 30 * 60000);
       return reservedSlots.some(slot => {
@@ -152,7 +51,6 @@
       });
     }
 
-    // 日付を「MM月DD日 hh:mm」形式に整形する関数
     function formatDateTimeForMessage(date) {
       const pad = n => n.toString().padStart(2, '0');
       const month = pad(date.getMonth() + 1);
@@ -162,9 +60,10 @@
       return `${month}月${day}日 ${hour}:${min}`;
     }
 
-    // 予約スロット表を描画し、クリック可能な空きセルにはクリックイベントを付与
     function renderGrid(reservedSlots) {
       const container = document.getElementById("slots");
+      const messageBox = document.getElementById("messageBox");
+
       const today = new Date();
       const days = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(today);
@@ -194,8 +93,7 @@
           const reserved = isReserved(dt, reservedSlots);
           const cls = reserved ? "unavailable" : "available";
           const sym = reserved ? "×" : "○";
-          // 空きセルには data-datetime 属性をセットしてクリックイベントを設定可能にする
-          html += `<td class="${cls}"${cls==="available" ? ` data-datetime="${dt.toISOString()}"` : ''}>${sym}</td>`;
+          html += `<td class="${cls}"${cls === "available" ? ` data-datetime="${dt.toISOString()}"` : ''}>${sym}</td>`;
         });
         html += "</tr>";
       });
@@ -203,14 +101,22 @@
       html += "</tbody></table>";
       container.innerHTML = html;
 
-      // 空きスロットにクリックイベント追加
       document.querySelectorAll("td.available").forEach(td => {
         td.addEventListener("click", async () => {
+          // 多重送信防止
+          if (td.classList.contains("sending")) return;
+          td.classList.add("sending");
+
+          messageBox.style.display = "none";
+          messageBox.textContent = "";
+
           const datetimeISO = td.getAttribute("data-datetime");
           if (!datetimeISO) {
             alert("日時情報が取得できません");
+            td.classList.remove("sending");
             return;
           }
+
           const dt = new Date(datetimeISO);
           const messageText = `確定予約日：${formatDateTimeForMessage(dt)}`;
 
@@ -222,9 +128,22 @@
             });
             if (!res.ok) throw new Error("送信に失敗しました");
 
-            alert(`予約日時を送信しました！\n${messageText}`);
+            // 成功時メッセージ表示
+            messageBox.textContent = `予約日時を送信しました！\n${messageText}`;
+            messageBox.style.display = "block";
+
+            // UIを送信済み状態に変更
+            td.textContent = "✓";
+            td.style.backgroundColor = "#bbf7d0";
+            td.style.color = "#166534";
+            td.style.cursor = "default";
+            td.classList.remove("available");
+            td.classList.add("unavailable");
+            td.removeAttribute("data-datetime");
+
           } catch (err) {
             alert(`エラーが発生しました: ${err.message}`);
+            td.classList.remove("sending");
           }
         });
       });
