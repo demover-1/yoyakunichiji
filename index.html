@@ -17,14 +17,12 @@
       text-align: center;
       margin-bottom: 24px;
       color: #0f172a;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.1);
       font-weight: 700;
       font-size: 24px;
     }
 
     #slots-wrapper {
       overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
       max-width: 100%;
     }
 
@@ -49,7 +47,6 @@
       text-align: center;
       font-size: 14px;
       white-space: nowrap;
-      transition: background-color 0.3s ease;
       user-select: none;
     }
 
@@ -57,8 +54,6 @@
       background-color: #0c4a6e;
       color: white;
       font-weight: 700;
-      font-size: 15px;
-      letter-spacing: 0.04em;
     }
 
     tbody tr:nth-child(odd) td {
@@ -81,31 +76,21 @@
       background-color: #dcfce7;
       font-weight: 700;
       cursor: pointer;
-      border-left: 2px solid #22c55e;
-      border-right: 2px solid #22c55e;
-      border-top: 2px solid #bbf7d0;
-      border-bottom: 2px solid #bbf7d0;
+      border: 2px solid #22c55e;
       border-radius: 6px;
       box-shadow: inset 0 0 8px #bbf7d0;
-      user-select: none;
     }
 
     td.available:hover {
       background-color: #a7f3d0;
-      box-shadow: inset 0 0 12px #22c55e;
     }
 
     td.unavailable {
       color: #64748b;
       background-color: #e2e8f0;
       font-weight: 600;
-      border-left: 2px solid #cbd5e1;
-      border-right: 2px solid #cbd5e1;
-      border-top: 2px solid #f1f5f9;
-      border-bottom: 2px solid #f1f5f9;
+      border: 2px solid #cbd5e1;
       border-radius: 6px;
-      cursor: default;
-      user-select: none;
     }
 
     #slots-wrapper::-webkit-scrollbar {
@@ -120,59 +105,10 @@
     #slots-wrapper::-webkit-scrollbar-track {
       background: #dbeafe;
     }
-
-    #userIdWrapper {
-      margin: 0 auto 20px auto;
-      max-width: 700px;
-      background: #fff;
-      padding: 12px 20px;
-      border-radius: 12px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-      font-size: 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      justify-content: center;
-    }
-
-    #userId {
-      padding: 8px 12px;
-      font-size: 16px;
-      border: 2px solid #0c4a6e;
-      border-radius: 8px;
-      width: 220px;
-    }
-
-    @media (max-width: 480px) {
-      body {
-        padding: 12px;
-      }
-      h1 {
-        font-size: 18px;
-      }
-      th, td {
-        font-size: 11px;
-        padding: 6px 4px;
-      }
-      #slots {
-        padding: 8px;
-      }
-      #userId {
-        width: 100%;
-      }
-      #userIdWrapper {
-        flex-direction: column;
-      }
-    }
   </style>
 </head>
 <body>
   <h1>予約スロット（JST表示）</h1>
-
-  <div id="userIdWrapper">
-    <label for="userId">ユーザーID（必須）：</label>
-    <input type="text" id="userId" placeholder="ユーザーIDを入力" autocomplete="off" />
-  </div>
 
   <div id="slots-wrapper">
     <div id="slots">読み込み中...</div>
@@ -181,6 +117,22 @@
   <script>
     const webhookUrl = "https://hook.eu2.make.com/fxqg3wlky4p4kjfwrprhdswesq7v4r66";
 
+    // URLパラメータからuseridを取得
+    const params = new URLSearchParams(window.location.search);
+    const userId = params.get("userid");
+
+    // Webhook用のGoogle Calendar対応形式（ISO）
+    function formatDateISO(date) {
+      return date.toISOString(); // e.g., 2025-07-18T15:00:00.000Z
+    }
+
+    // 表示用（日本語）
+    function formatDateDisplay(date) {
+      const pad = n => n.toString().padStart(2, '0');
+      return `${pad(date.getMonth() + 1)}月${pad(date.getDate())}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+
+    // 予約枠取得
     async function loadReservedSlots() {
       const res = await fetch(webhookUrl);
       if (!res.ok) throw new Error("予約データ取得失敗");
@@ -194,21 +146,6 @@
         const b = new Date(slot.end);
         return date < b && end > a;
       });
-    }
-
-    function formatDateTimeForMessage(date) {
-      const pad = n => n.toString().padStart(2, '0');
-      const month = pad(date.getMonth() + 1);
-      const day = pad(date.getDate());
-      const hour = pad(date.getHours());
-      const min = pad(date.getMinutes());
-      return `${month}月${day}日 ${hour}:${min}`;
-    }
-
-    function toJSTISOString(date) {
-      const offsetMs = 9 * 60 * 60 * 1000; // +09:00 JST
-      const jst = new Date(date.getTime() + offsetMs);
-      return jst.toISOString().slice(0, 19) + "+09:00";
     }
 
     function renderGrid(reservedSlots) {
@@ -242,7 +179,7 @@
           const reserved = isReserved(dt, reservedSlots);
           const cls = reserved ? "unavailable" : "available";
           const sym = reserved ? "×" : "○";
-          html += `<td class="${cls}"${cls==="available" ? ` data-datetime="${dt.toISOString()}"` : ''}>${sym}</td>`;
+          html += `<td class="${cls}"${cls === "available" ? ` data-datetime="${dt.toISOString()}"` : ''}>${sym}</td>`;
         });
         html += "</tr>";
       });
@@ -252,21 +189,14 @@
 
       document.querySelectorAll("td.available").forEach(td => {
         td.addEventListener("click", async () => {
-          const userId = document.getElementById("userId").value.trim();
           if (!userId) {
-            alert("ユーザーIDを入力してください");
+            alert("ユーザーIDが見つかりません。URLにuseridパラメータが必要です。");
             return;
           }
 
           const datetimeISO = td.getAttribute("data-datetime");
-          if (!datetimeISO) {
-            alert("日時情報が取得できません");
-            return;
-          }
-
           const dt = new Date(datetimeISO);
-          const title = "確定予約日";
-          const datetime = toJSTISOString(dt);
+          const messageText = formatDateDisplay(dt);
 
           try {
             const res = await fetch(webhookUrl, {
@@ -274,13 +204,13 @@
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 userId: userId,
-                title: title,
-                datetime: datetime
+                message: "確定予約日",
+                datetime: formatDateISO(dt)
               })
             });
             if (!res.ok) throw new Error("送信に失敗しました");
 
-            alert(`予約日時を送信しました！\n${title}：${formatDateTimeForMessage(dt)}`);
+            alert(`予約日時を送信しました！\n${messageText}`);
           } catch (err) {
             alert(`エラーが発生しました: ${err.message}`);
           }
