@@ -117,34 +117,32 @@
   <script>
     const webhookUrl = "https://hook.eu2.make.com/qqgf8srez9urb5j6cmx1qxn41v1st7tg";
 
-    // URLパラメータからuseridを取得
+    // URLパラメータからuseridとduration(施術時間)を取得
     const params = new URLSearchParams(window.location.search);
     const userId = params.get("userid");
+    const duration = parseInt(params.get("duration"), 10) || 30;
 
-    // Webhook用のGoogle Calendar対応形式（ISO）
     function formatDateISO(date) {
-      return date.toISOString(); // e.g., 2025-07-18T15:00:00.000Z
+      return date.toISOString();
     }
 
-    // 表示用（日本語）
     function formatDateDisplay(date) {
       const pad = n => n.toString().padStart(2, '0');
       return `${pad(date.getMonth() + 1)}月${pad(date.getDate())}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`;
     }
 
-    // 予約枠取得
     async function loadReservedSlots() {
       const res = await fetch(webhookUrl);
       if (!res.ok) throw new Error("予約データ取得失敗");
       return res.json();
     }
 
-    function isReserved(date, reservedSlots) {
-      const end = new Date(date.getTime() + 30 * 60000);
+    function isReservedForDuration(startDate, reservedSlots, durationMinutes) {
+      const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
       return reservedSlots.some(slot => {
-        const a = new Date(slot.start);
-        const b = new Date(slot.end);
-        return date < b && end > a;
+        const slotStart = new Date(slot.start);
+        const slotEnd = new Date(slot.end);
+        return !(endDate <= slotStart || startDate >= slotEnd);
       });
     }
 
@@ -176,7 +174,7 @@
           const [hh, mm] = t.split(":");
           const dt = new Date(d);
           dt.setHours(+hh, +mm, 0, 0);
-          const reserved = isReserved(dt, reservedSlots);
+          const reserved = isReservedForDuration(dt, reservedSlots, duration);
           const cls = reserved ? "unavailable" : "available";
           const sym = reserved ? "×" : "○";
           html += `<td class="${cls}"${cls === "available" ? ` data-datetime="${dt.toISOString()}"` : ''}>${sym}</td>`;
@@ -194,9 +192,11 @@
             return;
           }
 
-          const datetimeISO = td.getAttribute("data-datetime");
-          const dt = new Date(datetimeISO);
-          const messageText = formatDateDisplay(dt);
+          const startDateTime = new Date(td.getAttribute("data-datetime"));
+          const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
+          const start = formatDateISO(startDateTime);
+          const end = formatDateISO(endDateTime);
+          const messageText = formatDateDisplay(startDateTime);
 
           try {
             const res = await fetch(webhookUrl, {
@@ -205,12 +205,13 @@
               body: JSON.stringify({
                 userId: userId,
                 message: "確定予約日",
-                datetime: formatDateISO(dt)
+                start: start,
+                end: end
               })
             });
             if (!res.ok) throw new Error("送信に失敗しました");
 
-            alert(`予約日時を送信しました！\n${messageText}`);
+            alert(`予約日時を送信しました！\n${messageText} ～ ${formatDateDisplay(endDateTime)}`);
           } catch (err) {
             alert(`エラーが発生しました: ${err.message}`);
           }
