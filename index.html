@@ -122,6 +122,17 @@
     const userId = params.get("userid");
     const duration = parseInt(params.get("duration"), 10) || 30;
 
+    // ✅ 追加: 初回GET送信
+    if (userId && duration) {
+      fetch(`${webhookUrl}?userid=${encodeURIComponent(userId)}&duration=${encodeURIComponent(duration)}`)
+        .then(res => {
+          if (!res.ok) throw new Error("GET送信失敗");
+          return res.text();
+        })
+        .then(console.log)
+        .catch(console.error);
+    }
+
     function formatDateISO(date) {
       return date.toISOString();
     }
