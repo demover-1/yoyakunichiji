@@ -122,32 +122,34 @@
     const userId = params.get("userid");
     const duration = parseInt(params.get("duration"), 10) || 30;
 
-    // ✅ 追加: 初回GET送信
-    if (userId && duration) {
-      fetch(`${webhookUrl}?userid=${encodeURIComponent(userId)}&duration=${encodeURIComponent(duration)}`)
-        .then(res => {
-          if (!res.ok) throw new Error("GET送信失敗");
-          return res.text();
-        })
-        .then(console.log)
-        .catch(console.error);
+    // useridとdurationを含めて予約済みスロット情報を一括取得（GET）
+    async function loadReservedSlotsWithParams() {
+      if (!userId) {
+        alert("URLにuseridパラメータがありません。");
+        return [];
+      }
+      try {
+        const res = await fetch(`${webhookUrl}?userid=${encodeURIComponent(userId)}&duration=${encodeURIComponent(duration)}`);
+        if (!res.ok) throw new Error("予約データ取得に失敗しました");
+        return await res.json();
+      } catch (err) {
+        alert(err.message);
+        return [];
+      }
     }
 
+    // 日付ISO形式に変換
     function formatDateISO(date) {
       return date.toISOString();
     }
 
+    // 表示用日時フォーマット
     function formatDateDisplay(date) {
       const pad = n => n.toString().padStart(2, '0');
       return `${pad(date.getMonth() + 1)}月${pad(date.getDate())}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`;
     }
 
-    async function loadReservedSlots() {
-      const res = await fetch(webhookUrl);
-      if (!res.ok) throw new Error("予約データ取得失敗");
-      return res.json();
-    }
-
+    // 指定時間帯が予約済みか判定
     function isReservedForDuration(startDate, reservedSlots, durationMinutes) {
       const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
       return reservedSlots.some(slot => {
@@ -157,6 +159,7 @@
       });
     }
 
+    // 予約スロットのグリッドを表示
     function renderGrid(reservedSlots) {
       const container = document.getElementById("slots");
       const today = new Date();
@@ -196,6 +199,7 @@
       html += "</tbody></table>";
       container.innerHTML = html;
 
+      // 予約スロット選択時の処理
       document.querySelectorAll("td.available").forEach(td => {
         td.addEventListener("click", async () => {
           if (!userId) {
@@ -230,7 +234,8 @@
       });
     }
 
-    loadReservedSlots()
+    // ページロード時に一度だけfetch（userid,duration付き）
+    loadReservedSlotsWithParams()
       .then(renderGrid)
       .catch(err => {
         document.getElementById("slots").textContent = err.message;
