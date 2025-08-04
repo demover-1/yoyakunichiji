@@ -280,10 +280,10 @@
 
       // 最初のBundleから営業時間を抽出してマージ
       const first = data[0];
-      const start_hour = first["2"];
-      const start_minute = first["3"];
-      const end_hour = first["4"];
-      const end_minute = first["5"];
+      const start_hour = first["開始時間"];
+      const start_minute = first["開始分"];
+      const end_hour = first["終了時間"];
+      const end_minute = first["終了分"];
       return data.map(d => ({ ...d, start_hour, start_minute, end_hour, end_minute }));
     } catch (err) {
       alert(err.message);
@@ -300,4 +300,5 @@
 
 </body>
 </html>
+
 
