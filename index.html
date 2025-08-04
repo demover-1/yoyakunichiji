@@ -16,10 +16,35 @@
     }
     h1 {
       text-align: center;
-      margin-bottom: 24px;
+      margin-bottom: 12px;
       color: #0f172a;
       font-weight: 700;
       font-size: 24px;
+    }
+    #month-navigation {
+      text-align: center;
+      margin-bottom: 16px;
+      user-select: none;
+    }
+    button.nav-btn {
+      background-color: #0c4a6e;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 12px;
+      margin: 0 12px;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      user-select: none;
+    }
+    button.nav-btn:disabled {
+      background-color: #94a3b8;
+      cursor: not-allowed;
+    }
+    button.nav-btn:hover:not(:disabled) {
+      background-color: #063e5e;
     }
     #calendar {
       display: grid;
@@ -138,6 +163,11 @@
 </head>
 <body>
   <h1>予約カレンダー（JST表示）</h1>
+  <div id="month-navigation">
+    <button class="nav-btn" id="prev-month-btn">← 前の月</button>
+    <span id="current-month-label"></span>
+    <button class="nav-btn" id="next-month-btn">次の月 →</button>
+  </div>
   <div id="calendar"></div>
 
   <div id="times-list" style="display:none;">
@@ -161,14 +191,52 @@
   // 今日の日付（JST）
   function getTodayJST() {
     const now = new Date();
-    // JST = UTC+9
     const utc = now.getTime() + now.getTimezoneOffset() * 60000;
     return new Date(utc + 9 * 3600000);
   }
 
-  // カレンダー生成
+  // 月表示管理
+  const today = getTodayJST();
+  let displayedYear = today.getFullYear();
+  let displayedMonth = today.getMonth();
+
+  const minMonth = displayedMonth;
+  const minYear = displayedYear;
+
+  // maxは今日の月＋2ヶ月
+  let maxDate = new Date(displayedYear, displayedMonth + 2, 1);
+  const maxYear = maxDate.getFullYear();
+  const maxMonth = maxDate.getMonth();
+
+  const calendar = document.getElementById("calendar");
+  const currentMonthLabel = document.getElementById("current-month-label");
+  const prevBtn = document.getElementById("prev-month-btn");
+  const nextBtn = document.getElementById("next-month-btn");
+
+  // 選択中の日付DIV
+  let selectedDayDiv = null;
+
+  function updateMonthLabel(year, month) {
+    currentMonthLabel.textContent = `${year}年${month + 1}月`;
+  }
+
+  function canGoPrev() {
+    if (displayedYear < minYear) return false;
+    if (displayedYear === minYear && displayedMonth <= minMonth) return false;
+    return true;
+  }
+  function canGoNext() {
+    if (displayedYear > maxYear) return false;
+    if (displayedYear === maxYear && displayedMonth >= maxMonth) return false;
+    return true;
+  }
+
+  function setNavButtons() {
+    prevBtn.disabled = !canGoPrev();
+    nextBtn.disabled = !canGoNext();
+  }
+
   function buildCalendar(year, month) {
-    const calendar = document.getElementById("calendar");
     calendar.innerHTML = "";
 
     // 曜日名（日～土）
@@ -196,17 +264,34 @@
     for(let d=1; d <= daysInMonth; d++) {
       const dayDiv = document.createElement("div");
       dayDiv.className = "day";
+
+      // 今日より前の日付はクリック不可（過去予約禁止）
+      const dayDate = new Date(year, month, d);
+      const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      if(dayDate < todayDateOnly) {
+        dayDiv.classList.add("inactive");
+      }
+
       dayDiv.textContent = d;
       dayDiv.dataset.date = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
       dayDiv.addEventListener("click", () => onDateSelected(dayDiv));
       calendar.appendChild(dayDiv);
     }
+
+    updateMonthLabel(year, month);
+    setNavButtons();
+
+    // 選択リセット
+    if(selectedDayDiv) {
+      selectedDayDiv.classList.remove("selected");
+      selectedDayDiv = null;
+    }
+    document.getElementById("times-list").style.display = "none";
+    document.getElementById("selected-info").textContent = "予約したい日時を選択してください。";
+    document.getElementById("send-button").disabled = true;
   }
 
-  // 選択中の日付DIV
-  let selectedDayDiv = null;
-
-  // 日付選択時の処理
+  // 日付選択時
   function onDateSelected(dayDiv) {
     if (dayDiv.classList.contains("inactive")) return;
 
@@ -218,7 +303,7 @@
     showTimeSlotsForDate(selectedDateStr);
   }
 
-  // 日付文字列から時間スロット一覧表示
+  // 時間スロット表示
   function showTimeSlotsForDate(dateStr) {
     const container = document.getElementById("times-list");
     const slotsContainer = document.getElementById("time-slots-container");
@@ -228,89 +313,125 @@
     container.style.display = "block";
     slotsContainer.innerHTML = "";
 
-    // 開始・終了時間をDateで計算
-    let current = new Date(`${dateStr}T${String(startHour).padStart(2,"0")}:${String(startMinute).padStart(2,"0")}:00+09:00`);
-    const end = new Date(`${dateStr}T${String(endHour).padStart(2,"0")}:${String(endMinute).padStart(2,"0")}:00+09:00`);
+    // 開始時刻と終了時刻をDateで作成
+    const baseDate = new Date(dateStr + "T00:00:00+09:00");
+    let current = new Date(baseDate);
+    current.setHours(startHour, startMinute, 0, 0);
+    const end = new Date(baseDate);
+    end.setHours(endHour, endMinute, 0, 0);
 
-    // 選択中の時間
-    let selectedTimeSlot = null;
+    // 予約済み時間を抽出（対象日のみ）
+    const reservedForDay = reservedSlots.filter(slot => {
+      const slotStart = new Date(slot.start);
+      return slotStart.toISOString().slice(0,10) === dateStr;
+    });
 
-    while(current <= end) {
-      const slotISO = current.toISOString();
-      // 予約済み判定
-      const reserved = reservedSlots.some(slot => {
-        const slotStart = new Date(slot.start);
-        const slotEnd = new Date(slot.end);
-        const desiredEnd = new Date(current.getTime() + duration*60000);
-        return !(desiredEnd <= slotStart || current >= slotEnd);
+    // 時間スロットを30分刻みで作成
+    const timeSlots = [];
+    while(current < end) {
+      // 予約終了時間は開始時間＋duration分
+      const slotEnd = new Date(current.getTime() + duration * 60000);
+
+      // 予約重複チェック
+      const isReserved = reservedForDay.some(slot => {
+        const s = new Date(slot.start);
+        const e = new Date(slot.end);
+        return !(slotEnd <= s || current >= e);
       });
 
-      const slotDiv = document.createElement("div");
-      slotDiv.className = "time-slot";
-      if(reserved) {
-        slotDiv.classList.add("unavailable");
-        slotDiv.textContent = current.toLocaleTimeString("ja-JP", {hour:"2-digit",minute:"2-digit"});
-      } else {
-        slotDiv.textContent = current.toLocaleTimeString("ja-JP", {hour:"2-digit",minute:"2-digit"});
-        slotDiv.tabIndex = 0;
-        slotDiv.style.userSelect = "none";
-        slotDiv.addEventListener("click", () => {
-          if(selectedTimeSlot) selectedTimeSlot.classList.remove("selected");
-          slotDiv.classList.add("selected");
-          selectedTimeSlot = slotDiv;
-
-          document.getElementById("selected-info").textContent =
-            `選択中の予約日時: ${dateStr} ${slotDiv.textContent}`;
-          document.getElementById("send-button").disabled = false;
-        });
-      }
-      slotsContainer.appendChild(slotDiv);
-
+      timeSlots.push({ time: current, reserved: isReserved });
       current = new Date(current.getTime() + 30 * 60000);
     }
 
-    // 送信ボタン押下時の処理
+    let selectedTime = null;
+
+    timeSlots.forEach(slot => {
+      const timeDiv = document.createElement("div");
+      timeDiv.className = "time-slot";
+      if(slot.reserved) {
+        timeDiv.classList.add("unavailable");
+      }
+      const hh = String(slot.time.getHours()).padStart(2,"0");
+      const mm = String(slot.time.getMinutes()).padStart(2,"0");
+      timeDiv.textContent = `${hh}:${mm}`;
+
+      if(!slot.reserved) {
+        timeDiv.addEventListener("click", () => {
+          if(selectedTime) selectedTime.classList.remove("selected");
+          timeDiv.classList.add("selected");
+          selectedTime = timeDiv;
+
+          document.getElementById("selected-info").textContent = `選択中: ${dateStr} ${timeDiv.textContent}`;
+          document.getElementById("send-button").disabled = false;
+        });
+      }
+      slotsContainer.appendChild(timeDiv);
+    });
+
+    // 送信ボタンのクリック処理
     const sendButton = document.getElementById("send-button");
     sendButton.disabled = true;
+
     sendButton.onclick = async () => {
       if(!userId) {
-        alert("URLにuseridパラメータがありません。");
+        alert("ユーザーIDが無効です。");
         return;
       }
-      if(!selectedTimeSlot) {
-        alert("予約時間を選択してください。");
+      if(!selectedTime) {
+        alert("時間を選択してください。");
         return;
       }
 
-      const startDateTime = new Date(`${dateStr}T${selectedTimeSlot.textContent}:00+09:00`);
-      const endDateTime = new Date(startDateTime.getTime() + duration*60000);
+      const selectedDateTime = new Date(`${dateStr}T${selectedTime.textContent}:00+09:00`);
+      const endDateTime = new Date(selectedDateTime.getTime() + duration * 60000);
 
       try {
         const res = await fetch(webhookUrl, {
           method: "POST",
-          headers: {"Content-Type": "application/json"},
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userId: userId,
             message: "確定予約日",
-            start: startDateTime.toISOString(),
+            start: selectedDateTime.toISOString(),
             end: endDateTime.toISOString()
           })
         });
         if(!res.ok) throw new Error("送信に失敗しました");
-        alert(`予約日時を送信しました！\n${dateStr} ${selectedTimeSlot.textContent} ～ ${endDateTime.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}`);
-
+        alert(`予約日時を送信しました！\n${dateStr} ${selectedTime.textContent} ～ ${String(endDateTime.getHours()).padStart(2,"0")}:${String(endDateTime.getMinutes()).padStart(2,"0")}`);
         // リセット
-        selectedTimeSlot.classList.remove("selected");
-        selectedTimeSlot = null;
+        selectedTime.classList.remove("selected");
+        selectedTime = null;
         document.getElementById("selected-info").textContent = "予約したい日時を選択してください。";
         sendButton.disabled = true;
-      } catch(e) {
-        alert("エラーが発生しました: " + e.message);
+      } catch(err) {
+        alert(`エラーが発生しました: ${err.message}`);
       }
     };
   }
 
-  // 予約データをロードしてカレンダー初期化
+  prevBtn.addEventListener("click", () => {
+    if(displayedMonth === minMonth && displayedYear === minYear) return;
+    if(displayedMonth === 0) {
+      displayedMonth = 11;
+      displayedYear--;
+    } else {
+      displayedMonth--;
+    }
+    buildCalendar(displayedYear, displayedMonth);
+  });
+
+  nextBtn.addEventListener("click", () => {
+    if(displayedMonth === maxMonth && displayedYear === maxYear) return;
+    if(displayedMonth === 11) {
+      displayedMonth = 0;
+      displayedYear++;
+    } else {
+      displayedMonth++;
+    }
+    buildCalendar(displayedYear, displayedMonth);
+  });
+
+  // 初期データ取得・カレンダー構築
   async function initialize() {
     if(!userId) {
       alert("URLにuseridパラメータがありません。");
@@ -325,7 +446,6 @@
         return;
       }
 
-      // 営業時間取得（先頭データより）
       const first = data[0];
       startHour = parseInt(first["開始時間"],10);
       startMinute = parseInt(first["開始分"],10);
@@ -337,16 +457,15 @@
         end: d.end
       }));
 
-      // 今月カレンダー生成
-      const today = getTodayJST();
-      buildCalendar(today.getFullYear(), today.getMonth());
-
-    } catch (err) {
+      buildCalendar(displayedYear, displayedMonth);
+    } catch(err) {
       alert(err.message);
     }
   }
 
   initialize();
+
 </script>
+
 </body>
 </html>
