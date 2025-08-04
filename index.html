@@ -2,8 +2,8 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>予約スロット</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>予約カレンダー</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP&display=swap" rel="stylesheet" />
   <style>
     body {
@@ -11,8 +11,9 @@
       padding: 20px;
       background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
       color: #222;
+      max-width: 800px;
+      margin: auto;
     }
-
     h1 {
       text-align: center;
       margin-bottom: 24px;
@@ -20,92 +21,92 @@
       font-weight: 700;
       font-size: 24px;
     }
-
-    #slots-wrapper {
-      overflow-x: auto;
-      max-width: 100%;
-    }
-
-    #slots {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 12px 24px rgba(0,0,0,0.08);
-      padding: 16px;
-      min-width: 700px;
-      display: inline-block;
-    }
-
-    table {
-      border-collapse: separate;
-      border-spacing: 0;
-      width: 100%;
-      table-layout: fixed;
-    }
-
-    th, td {
-      padding: 12px 8px;
-      text-align: center;
-      font-size: 14px;
-      white-space: nowrap;
+    #calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
       user-select: none;
     }
-
-    thead th {
+    .day-name, .day {
+      text-align: center;
+      padding: 6px 0;
+      font-weight: 600;
+    }
+    .day-name {
       background-color: #0c4a6e;
+      color: white;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .day {
+      background-color: #f9fbfd;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      font-size: 16px;
+      line-height: 28px;
+    }
+    .day:hover {
+      background-color: #e0f2fe;
+    }
+    .day.inactive {
+      color: #a0a8b8;
+      cursor: default;
+      background: none;
+    }
+    .day.selected {
+      background-color: #22c55e;
       color: white;
       font-weight: 700;
     }
 
-    tbody tr:nth-child(odd) td {
-      background-color: #f9fbfd;
+    #times-list {
+      margin-top: 24px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+      padding: 16px;
+      user-select: none;
     }
-
-    tbody tr:hover td:not(.unavailable) {
-      background-color: #e0f2fe;
-      cursor: pointer;
+    #times-list h2 {
+      text-align: center;
+      margin-bottom: 16px;
+      color: #0f172a;
+      font-weight: 700;
+      font-size: 20px;
     }
-
-    th:first-child {
-      background-color: #94a3b8;
-      color: #f1f5f9;
-      font-weight: 600;
-    }
-
-    td.available {
-      color: #166534;
-      background-color: #dcfce7;
+    .time-slot {
+      display: inline-block;
+      margin: 6px 6px 6px 0;
+      padding: 8px 14px;
+      border-radius: 6px;
       font-weight: 700;
       cursor: pointer;
       border: 2px solid #22c55e;
-      border-radius: 6px;
+      background-color: #dcfce7;
+      color: #166534;
       box-shadow: inset 0 0 8px #bbf7d0;
+      user-select: none;
+      transition: background-color 0.3s ease;
+      min-width: 72px;
+      text-align: center;
     }
-
-    td.available:hover {
+    .time-slot:hover {
       background-color: #a7f3d0;
     }
-
-    td.unavailable {
-      color: #64748b;
+    .time-slot.unavailable {
       background-color: #e2e8f0;
-      font-weight: 600;
-      border: 2px solid #cbd5e1;
-      border-radius: 6px;
+      color: #64748b;
+      border-color: #cbd5e1;
+      cursor: default;
+      box-shadow: none;
     }
-
-    #slots-wrapper::-webkit-scrollbar {
-      height: 10px;
+    .time-slot.selected {
+      background-color: #16a34a;
+      border-color: #15803d;
+      color: white;
+      box-shadow: none;
     }
-
-    #slots-wrapper::-webkit-scrollbar-thumb {
-      background: #0c4a6e;
-      border-radius: 10px;
-    }
-
-    #slots-wrapper::-webkit-scrollbar-track {
-      background: #dbeafe;
-    }
-
     #selected-info {
       margin-top: 20px;
       font-weight: 700;
@@ -113,10 +114,9 @@
       text-align: center;
       color: #166534;
     }
-
     #send-button {
       display: block;
-      margin: 16px auto 0 auto;
+      margin: 20px auto 0 auto;
       padding: 12px 24px;
       font-size: 16px;
       background-color: #22c55e;
@@ -127,22 +127,22 @@
       user-select: none;
       transition: background-color 0.3s ease;
     }
-
     #send-button:disabled {
       background-color: #a7f3d0;
       cursor: not-allowed;
     }
-
     #send-button:hover:not(:disabled) {
       background-color: #16a34a;
     }
   </style>
 </head>
 <body>
-  <h1>予約スロット（JST表示）</h1>
+  <h1>予約カレンダー（JST表示）</h1>
+  <div id="calendar"></div>
 
-  <div id="slots-wrapper">
-    <div id="slots">読み込み中...</div>
+  <div id="times-list" style="display:none;">
+    <h2 id="selected-date-title"></h2>
+    <div id="time-slots-container"></div>
   </div>
 
   <div id="selected-info">予約したい日時を選択してください。</div>
@@ -154,145 +154,199 @@
   const userId = params.get("userid");
   const duration = parseInt(params.get("duration"), 10) || 30;
 
-  function formatDateISO(date) {
-    return date.toISOString();
+  // 予約データと営業時間グローバル格納
+  let reservedSlots = [];
+  let startHour = 8, startMinute = 0, endHour = 17, endMinute = 0;
+
+  // 今日の日付（JST）
+  function getTodayJST() {
+    const now = new Date();
+    // JST = UTC+9
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    return new Date(utc + 9 * 3600000);
   }
 
-  function formatDateDisplay(date) {
-    const pad = n => n.toString().padStart(2, '0');
-    return `${pad(date.getMonth() + 1)}月${pad(date.getDate())}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-  }
+  // カレンダー生成
+  function buildCalendar(year, month) {
+    const calendar = document.getElementById("calendar");
+    calendar.innerHTML = "";
 
-  function isReservedForDuration(startDate, reservedSlots, durationMinutes) {
-    const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
-    return reservedSlots.some(slot => {
-      const slotStart = new Date(slot.start);
-      const slotEnd = new Date(slot.end);
-      return !(endDate <= slotStart || startDate >= slotEnd);
+    // 曜日名（日～土）
+    const dayNames = ["日","月","火","水","木","金","土"];
+    dayNames.forEach(dn => {
+      const dnElem = document.createElement("div");
+      dnElem.className = "day-name";
+      dnElem.textContent = dn;
+      calendar.appendChild(dnElem);
     });
-  }
 
-  function renderGrid(reservedSlots) {
-    const container = document.getElementById("slots");
-    const today = new Date();
-    const days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(today);
-      d.setDate(d.getDate() + i);
-      return d;
-    });
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const firstWeekDay = firstDay.getDay();
+    const daysInMonth = lastDay.getDate();
 
-    const { start_hour, start_minute, end_hour, end_minute } = reservedSlots[0];
-
-    const times = [];
-    let current = new Date();
-    current.setHours(start_hour, start_minute, 0, 0);
-    const end = new Date();
-    end.setHours(end_hour, end_minute, 0, 0);
-
-    while (current <= end) {
-      times.push(`${String(current.getHours()).padStart(2, '0')}:${String(current.getMinutes()).padStart(2, '0')}`);
-      current.setMinutes(current.getMinutes() + 30);
+    // 前月末の日付を空セルで埋める
+    for(let i=0; i < firstWeekDay; i++) {
+      const emptyDiv = document.createElement("div");
+      emptyDiv.className = "day inactive";
+      calendar.appendChild(emptyDiv);
     }
 
-    let html = "<table><thead><tr><th></th>";
-    days.forEach(d => {
-      const dt = d.toLocaleDateString("ja-JP", { month: '2-digit', day: '2-digit', weekday: 'short' });
-      html += `<th>${dt}</th>`;
-    });
-    html += "</tr></thead><tbody>";
+    // 日付セルを作成
+    for(let d=1; d <= daysInMonth; d++) {
+      const dayDiv = document.createElement("div");
+      dayDiv.className = "day";
+      dayDiv.textContent = d;
+      dayDiv.dataset.date = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      dayDiv.addEventListener("click", () => onDateSelected(dayDiv));
+      calendar.appendChild(dayDiv);
+    }
+  }
 
-    times.forEach(t => {
-      html += `<tr><th>${t}</th>`;
-      days.forEach(d => {
-        const [hh, mm] = t.split(":");
-        const dt = new Date(d);
-        dt.setHours(+hh, +mm, 0, 0);
-        const reserved = isReservedForDuration(dt, reservedSlots, duration);
-        const cls = reserved ? "unavailable" : "available";
-        const sym = reserved ? "×" : "○";
-        html += `<td class="${cls}"${cls === "available" ? ` data-datetime="${dt.toISOString()}"` : ''}>${sym}</td>`;
+  // 選択中の日付DIV
+  let selectedDayDiv = null;
+
+  // 日付選択時の処理
+  function onDateSelected(dayDiv) {
+    if (dayDiv.classList.contains("inactive")) return;
+
+    if(selectedDayDiv) selectedDayDiv.classList.remove("selected");
+    dayDiv.classList.add("selected");
+    selectedDayDiv = dayDiv;
+
+    const selectedDateStr = dayDiv.dataset.date;
+    showTimeSlotsForDate(selectedDateStr);
+  }
+
+  // 日付文字列から時間スロット一覧表示
+  function showTimeSlotsForDate(dateStr) {
+    const container = document.getElementById("times-list");
+    const slotsContainer = document.getElementById("time-slots-container");
+    const title = document.getElementById("selected-date-title");
+
+    title.textContent = `${dateStr} の予約可能時間`;
+    container.style.display = "block";
+    slotsContainer.innerHTML = "";
+
+    // 開始・終了時間をDateで計算
+    let current = new Date(`${dateStr}T${String(startHour).padStart(2,"0")}:${String(startMinute).padStart(2,"0")}:00+09:00`);
+    const end = new Date(`${dateStr}T${String(endHour).padStart(2,"0")}:${String(endMinute).padStart(2,"0")}:00+09:00`);
+
+    // 選択中の時間
+    let selectedTimeSlot = null;
+
+    while(current <= end) {
+      const slotISO = current.toISOString();
+      // 予約済み判定
+      const reserved = reservedSlots.some(slot => {
+        const slotStart = new Date(slot.start);
+        const slotEnd = new Date(slot.end);
+        const desiredEnd = new Date(current.getTime() + duration*60000);
+        return !(desiredEnd <= slotStart || current >= slotEnd);
       });
-      html += "</tr>";
-    });
 
-    html += "</tbody></table>";
-    container.innerHTML = html;
+      const slotDiv = document.createElement("div");
+      slotDiv.className = "time-slot";
+      if(reserved) {
+        slotDiv.classList.add("unavailable");
+        slotDiv.textContent = current.toLocaleTimeString("ja-JP", {hour:"2-digit",minute:"2-digit"});
+      } else {
+        slotDiv.textContent = current.toLocaleTimeString("ja-JP", {hour:"2-digit",minute:"2-digit"});
+        slotDiv.tabIndex = 0;
+        slotDiv.style.userSelect = "none";
+        slotDiv.addEventListener("click", () => {
+          if(selectedTimeSlot) selectedTimeSlot.classList.remove("selected");
+          slotDiv.classList.add("selected");
+          selectedTimeSlot = slotDiv;
 
-    let selectedDateTime = null;
-    const selectedInfo = document.getElementById("selected-info");
+          document.getElementById("selected-info").textContent =
+            `選択中の予約日時: ${dateStr} ${slotDiv.textContent}`;
+          document.getElementById("send-button").disabled = false;
+        });
+      }
+      slotsContainer.appendChild(slotDiv);
+
+      current = new Date(current.getTime() + 30 * 60000);
+    }
+
+    // 送信ボタン押下時の処理
     const sendButton = document.getElementById("send-button");
-
-    document.querySelectorAll("td.available").forEach(td => {
-      td.addEventListener("click", () => {
-        const clickedDate = new Date(td.getAttribute("data-datetime"));
-        selectedDateTime = clickedDate;
-        selectedInfo.textContent = `選択中の予約日時: ${formatDateDisplay(clickedDate)}`;
-        sendButton.disabled = false;
-      });
-    });
-
-    sendButton.addEventListener("click", async () => {
-      if (!userId || !selectedDateTime) {
-        alert("ユーザーIDまたは日時が無効です。");
+    sendButton.disabled = true;
+    sendButton.onclick = async () => {
+      if(!userId) {
+        alert("URLにuseridパラメータがありません。");
+        return;
+      }
+      if(!selectedTimeSlot) {
+        alert("予約時間を選択してください。");
         return;
       }
 
-      const startDateTime = selectedDateTime;
-      const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
-      const start = formatDateISO(startDateTime);
-      const end = formatDateISO(endDateTime);
+      const startDateTime = new Date(`${dateStr}T${selectedTimeSlot.textContent}:00+09:00`);
+      const endDateTime = new Date(startDateTime.getTime() + duration*60000);
 
       try {
         const res = await fetch(webhookUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {"Content-Type": "application/json"},
           body: JSON.stringify({
             userId: userId,
             message: "確定予約日",
-            start: start,
-            end: end
+            start: startDateTime.toISOString(),
+            end: endDateTime.toISOString()
           })
         });
-        if (!res.ok) throw new Error("送信に失敗しました");
-        alert(`予約日時を送信しました！\n${formatDateDisplay(startDateTime)} ～ ${formatDateDisplay(endDateTime)}`);
-        selectedDateTime = null;
-        selectedInfo.textContent = "予約したい日時を選択してください。";
+        if(!res.ok) throw new Error("送信に失敗しました");
+        alert(`予約日時を送信しました！\n${dateStr} ${selectedTimeSlot.textContent} ～ ${endDateTime.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}`);
+
+        // リセット
+        selectedTimeSlot.classList.remove("selected");
+        selectedTimeSlot = null;
+        document.getElementById("selected-info").textContent = "予約したい日時を選択してください。";
         sendButton.disabled = true;
-      } catch (err) {
-        alert(`エラーが発生しました: ${err.message}`);
+      } catch(e) {
+        alert("エラーが発生しました: " + e.message);
       }
-    });
+    };
   }
 
-  async function loadReservedSlotsWithParams() {
-    if (!userId) {
+  // 予約データをロードしてカレンダー初期化
+  async function initialize() {
+    if(!userId) {
       alert("URLにuseridパラメータがありません。");
-      return [];
+      return;
     }
     try {
       const res = await fetch(`${webhookUrl}?userid=${encodeURIComponent(userId)}&duration=${encodeURIComponent(duration)}`);
-      if (!res.ok) throw new Error("予約データ取得に失敗しました");
+      if(!res.ok) throw new Error("予約データ取得に失敗しました");
       const data = await res.json();
+      if(data.length === 0) {
+        alert("予約データがありません。");
+        return;
+      }
 
+      // 営業時間取得（先頭データより）
       const first = data[0];
-      const start_hour = parseInt(first["開始時間"], 10);
-      const start_minute = parseInt(first["開始分"], 10);
-      const end_hour = parseInt(first["終了時間"], 10);
-      const end_minute = parseInt(first["終了分"], 10);
+      startHour = parseInt(first["開始時間"],10);
+      startMinute = parseInt(first["開始分"],10);
+      endHour = parseInt(first["終了時間"],10);
+      endMinute = parseInt(first["終了分"],10);
 
-      return data.map(d => ({ ...d, start_hour, start_minute, end_hour, end_minute }));
+      reservedSlots = data.map(d => ({
+        start: d.start,
+        end: d.end
+      }));
+
+      // 今月カレンダー生成
+      const today = getTodayJST();
+      buildCalendar(today.getFullYear(), today.getMonth());
+
     } catch (err) {
       alert(err.message);
-      return [];
     }
   }
 
-  loadReservedSlotsWithParams()
-    .then(renderGrid)
-    .catch(err => {
-      document.getElementById("slots").textContent = err.message;
-    });
+  initialize();
 </script>
-
 </body>
 </html>
