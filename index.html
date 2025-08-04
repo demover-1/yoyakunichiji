@@ -152,155 +152,152 @@
   <!-- 送信ボタン -->
   <button id="send-button" disabled>予約を送信する</button>
 
-  <script>
-    const webhookUrl = "https://hook.eu2.make.com/m8ax699q4dk75uo84j5nrtu3zfm1x1pj";
+<script>
+  const webhookUrl = "https://hook.eu2.make.com/m8ax699q4dk75uo84j5nrtu3zfm1x1pj";
+  const params = new URLSearchParams(window.location.search);
+  const userId = params.get("userid");
+  const duration = parseInt(params.get("duration"), 10) || 30;
 
-    // URLパラメータからuseridとduration(施術時間)を取得
-    const params = new URLSearchParams(window.location.search);
-    const userId = params.get("userid");
-    const duration = parseInt(params.get("duration"), 10) || 30;
+  function formatDateISO(date) {
+    return date.toISOString();
+  }
 
-    // 日付ISO形式に変換
-    function formatDateISO(date) {
-      return date.toISOString();
-    }
+  function formatDateDisplay(date) {
+    const pad = n => n.toString().padStart(2, '0');
+    return `${pad(date.getMonth() + 1)}月${pad(date.getDate())}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
 
-    // 表示用日時フォーマット
-    function formatDateDisplay(date) {
-      const pad = n => n.toString().padStart(2, '0');
-      return `${pad(date.getMonth() + 1)}月${pad(date.getDate())}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-    }
+  function isReservedForDuration(startDate, reservedSlots, durationMinutes) {
+    const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
+    return reservedSlots.some(slot => {
+      const slotStart = new Date(slot.start);
+      const slotEnd = new Date(slot.end);
+      return !(endDate <= slotStart || startDate >= slotEnd);
+    });
+  }
 
-    // 指定時間帯が予約済みか判定
-    function isReservedForDuration(startDate, reservedSlots, durationMinutes) {
-      const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
-      return reservedSlots.some(slot => {
-        const slotStart = new Date(slot.start);
-        const slotEnd = new Date(slot.end);
-        return !(endDate <= slotStart || startDate >= slotEnd);
+  function renderGrid(reservedSlots) {
+    const container = document.getElementById("slots");
+    const today = new Date();
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+
+    // 営業時間データから開始・終了時刻を取得
+    const { start_hour, start_minute, end_hour, end_minute } = reservedSlots[0];
+
+    const times = [];
+    for (let h = start_hour; h <= end_hour; h++) {
+      const mins = (h === start_hour && start_minute === 30) ? [30] : (h === end_hour && end_minute === 0) ? [0] : [0, 30];
+      mins.forEach(m => {
+        if (h === end_hour && m > end_minute) return;
+        if (h === start_hour && m < start_minute) return;
+        times.push(`${('0' + h).slice(-2)}:${('0' + m).slice(-2)}`);
       });
     }
 
-    // 予約スロットのグリッドを表示
-    function renderGrid(reservedSlots) {
-      const container = document.getElementById("slots");
-      const today = new Date();
-      const days = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(today);
-        d.setDate(d.getDate() + i);
-        return d;
-      });
+    let html = "<table><thead><tr><th></th>";
+    days.forEach(d => {
+      const dt = d.toLocaleDateString("ja-JP", { month: '2-digit', day: '2-digit', weekday: 'short' });
+      html += `<th>${dt}</th>`;
+    });
+    html += "</tr></thead><tbody>";
 
-      const times = [];
-      for (let h = 10; h <= 20; h++) {
-        times.push(`${('0' + h).slice(-2)}:00`);
-        times.push(`${('0' + h).slice(-2)}:30`);
-      }
-
-      let html = "<table><thead><tr><th></th>";
+    times.forEach(t => {
+      html += `<tr><th>${t}</th>`;
       days.forEach(d => {
-        const dt = d.toLocaleDateString("ja-JP", { month: '2-digit', day: '2-digit', weekday: 'short' });
-        html += `<th>${dt}</th>`;
+        const [hh, mm] = t.split(":");
+        const dt = new Date(d);
+        dt.setHours(+hh, +mm, 0, 0);
+        const reserved = isReservedForDuration(dt, reservedSlots, duration);
+        const cls = reserved ? "unavailable" : "available";
+        const sym = reserved ? "×" : "○";
+        html += `<td class="${cls}"${cls === "available" ? ` data-datetime="${dt.toISOString()}"` : ''}>${sym}</td>`;
       });
-      html += "</tr></thead><tbody>";
+      html += "</tr>";
+    });
 
-      times.forEach(t => {
-        html += `<tr><th>${t}</th>`;
-        days.forEach(d => {
-          const [hh, mm] = t.split(":");
-          const dt = new Date(d);
-          dt.setHours(+hh, +mm, 0, 0);
-          const reserved = isReservedForDuration(dt, reservedSlots, duration);
-          const cls = reserved ? "unavailable" : "available";
-          const sym = reserved ? "×" : "○";
-          html += `<td class="${cls}"${cls === "available" ? ` data-datetime="${dt.toISOString()}"` : ''}>${sym}</td>`;
-        });
-        html += "</tr>";
+    html += "</tbody></table>";
+    container.innerHTML = html;
+
+    let selectedDateTime = null;
+    const selectedInfo = document.getElementById("selected-info");
+    const sendButton = document.getElementById("send-button");
+
+    document.querySelectorAll("td.available").forEach(td => {
+      td.addEventListener("click", () => {
+        const clickedDate = new Date(td.getAttribute("data-datetime"));
+        selectedDateTime = clickedDate;
+        selectedInfo.textContent = `選択中の予約日時: ${formatDateDisplay(clickedDate)}`;
+        sendButton.disabled = false;
       });
+    });
 
-      html += "</tbody></table>";
-      container.innerHTML = html;
-
-      // 選択中の日時を管理
-      let selectedDateTime = null;
-      const selectedInfo = document.getElementById("selected-info");
-      const sendButton = document.getElementById("send-button");
-
-      // 予約スロット選択時の処理
-      document.querySelectorAll("td.available").forEach(td => {
-        td.addEventListener("click", () => {
-          const clickedDate = new Date(td.getAttribute("data-datetime"));
-          selectedDateTime = clickedDate;
-
-          // 表示更新（終了日時は消す）
-          selectedInfo.textContent = `選択中の予約日時: ${formatDateDisplay(clickedDate)}`;
-          sendButton.disabled = false;
-        });
-      });
-
-      // 送信ボタン押下時の処理
-      sendButton.addEventListener("click", async () => {
-        if (!userId) {
-          alert("ユーザーIDが見つかりません。URLにuseridパラメータが必要です。");
-          return;
-        }
-
-        if (!selectedDateTime) {
-          alert("予約日時を選択してください。");
-          return;
-        }
-
-        const startDateTime = selectedDateTime;
-        const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
-        const start = formatDateISO(startDateTime);
-        const end = formatDateISO(endDateTime);
-
-        try {
-          const res = await fetch(webhookUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userId: userId,
-              message: "確定予約日",
-              start: start,
-              end: end
-            })
-          });
-          if (!res.ok) throw new Error("送信に失敗しました");
-
-          alert(`予約日時を送信しました！\n${formatDateDisplay(startDateTime)} ～ ${formatDateDisplay(endDateTime)}`);
-
-          // 送信後リセット
-          selectedDateTime = null;
-          selectedInfo.textContent = "予約したい日時を選択してください。";
-          sendButton.disabled = true;
-        } catch (err) {
-          alert(`エラーが発生しました: ${err.message}`);
-        }
-      });
-    }
-
-    // ページロード時に一度だけfetch（userid,duration付き）
-    async function loadReservedSlotsWithParams() {
-      if (!userId) {
-        alert("URLにuseridパラメータがありません。");
-        return [];
+    sendButton.addEventListener("click", async () => {
+      if (!userId || !selectedDateTime) {
+        alert("ユーザーIDまたは日時が無効です。");
+        return;
       }
+
+      const startDateTime = selectedDateTime;
+      const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
+      const start = formatDateISO(startDateTime);
+      const end = formatDateISO(endDateTime);
+
       try {
-        const res = await fetch(`${webhookUrl}?userid=${encodeURIComponent(userId)}&duration=${encodeURIComponent(duration)}`);
-        if (!res.ok) throw new Error("予約データ取得に失敗しました");
-        return await res.json();
+        const res = await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: userId,
+            message: "確定予約日",
+            start: start,
+            end: end
+          })
+        });
+        if (!res.ok) throw new Error("送信に失敗しました");
+        alert(`予約日時を送信しました！\n${formatDateDisplay(startDateTime)} ～ ${formatDateDisplay(endDateTime)}`);
+        selectedDateTime = null;
+        selectedInfo.textContent = "予約したい日時を選択してください。";
+        sendButton.disabled = true;
       } catch (err) {
-        alert(err.message);
-        return [];
+        alert(`エラーが発生しました: ${err.message}`);
       }
-    }
+    });
+  }
 
-    loadReservedSlotsWithParams()
-      .then(renderGrid)
-      .catch(err => {
-        document.getElementById("slots").textContent = err.message;
-      });
-  </script>
+  async function loadReservedSlotsWithParams() {
+    if (!userId) {
+      alert("URLにuseridパラメータがありません。");
+      return [];
+    }
+    try {
+      const res = await fetch(`${webhookUrl}?userid=${encodeURIComponent(userId)}&duration=${encodeURIComponent(duration)}`);
+      if (!res.ok) throw new Error("予約データ取得に失敗しました");
+      const data = await res.json();
+
+      // 最初のBundleから営業時間を抽出してマージ
+      const first = data[0];
+      const start_hour = first["2"];
+      const start_minute = first["3"];
+      const end_hour = first["4"];
+      const end_minute = first["5"];
+      return data.map(d => ({ ...d, start_hour, start_minute, end_hour, end_minute }));
+    } catch (err) {
+      alert(err.message);
+      return [];
+    }
+  }
+
+  loadReservedSlotsWithParams()
+    .then(renderGrid)
+    .catch(err => {
+      document.getElementById("slots").textContent = err.message;
+    });
+</script>
+
 </body>
 </html>
+
