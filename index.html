@@ -106,7 +106,6 @@
       background: #dbeafe;
     }
 
-    /* 新しく追加した部分 */
     #selected-info {
       margin-top: 20px;
       font-weight: 700;
@@ -127,7 +126,6 @@
       cursor: pointer;
       user-select: none;
       transition: background-color 0.3s ease;
-      disabled: true;
     }
 
     #send-button:disabled {
@@ -147,9 +145,7 @@
     <div id="slots">読み込み中...</div>
   </div>
 
-  <!-- 選択中の日時表示 -->
   <div id="selected-info">予約したい日時を選択してください。</div>
-  <!-- 送信ボタン -->
   <button id="send-button" disabled>予約を送信する</button>
 
 <script>
@@ -185,17 +181,17 @@
       return d;
     });
 
-    // 営業時間データから開始・終了時刻を取得
     const { start_hour, start_minute, end_hour, end_minute } = reservedSlots[0];
 
     const times = [];
-    for (let h = start_hour; h <= end_hour; h++) {
-      const mins = (h === start_hour && start_minute === 30) ? [30] : (h === end_hour && end_minute === 0) ? [0] : [0, 30];
-      mins.forEach(m => {
-        if (h === end_hour && m > end_minute) return;
-        if (h === start_hour && m < start_minute) return;
-        times.push(`${('0' + h).slice(-2)}:${('0' + m).slice(-2)}`);
-      });
+    let current = new Date();
+    current.setHours(start_hour, start_minute, 0, 0);
+    const end = new Date();
+    end.setHours(end_hour, end_minute, 0, 0);
+
+    while (current <= end) {
+      times.push(`${String(current.getHours()).padStart(2, '0')}:${String(current.getMinutes()).padStart(2, '0')}`);
+      current.setMinutes(current.getMinutes() + 30);
     }
 
     let html = "<table><thead><tr><th></th>";
@@ -278,12 +274,12 @@
       if (!res.ok) throw new Error("予約データ取得に失敗しました");
       const data = await res.json();
 
-      // 最初のBundleから営業時間を抽出してマージ
       const first = data[0];
-      const start_hour = first["開始時間"];
-      const start_minute = first["開始分"];
-      const end_hour = first["終了時間"];
-      const end_minute = first["終了分"];
+      const start_hour = parseInt(first["開始時間"], 10);
+      const start_minute = parseInt(first["開始分"], 10);
+      const end_hour = parseInt(first["終了時間"], 10);
+      const end_minute = parseInt(first["終了分"], 10);
+
       return data.map(d => ({ ...d, start_hour, start_minute, end_hour, end_minute }));
     } catch (err) {
       alert(err.message);
@@ -300,5 +296,3 @@
 
 </body>
 </html>
-
-
